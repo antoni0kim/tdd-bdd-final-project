@@ -20,9 +20,11 @@ Product Store Service with UI
 """
 from flask import jsonify, request, abort
 from flask import url_for  # noqa: F401 pylint: disable=unused-import
-from service.models import Product
+from service.models import Product, Category
 from service.common import status  # HTTP Status Codes
 from . import app
+
+from decimal import Decimal
 
 
 ######################################################################
@@ -102,31 +104,27 @@ def create_products():
 # PLACE YOUR CODE TO LIST ALL PRODUCTS HERE
 #
 @app.route("/products", methods=["GET"])
-def list_products():
-    """Returns a list of Products"""
-    app.logger.info("Request to list Products...")
+def get_list_of_products():
     products = []
     name = request.args.get("name")
     category = request.args.get("category")
     available = request.args.get("available")
+    price = request.args.get("price")
+
     if name:
-        app.logger.info("Find by name: %s", name)
         products = Product.find_by_name(name)
     elif category:
-        app.logger.info("Find by category: %s", category)
-        # create enum from string
         category_value = getattr(Category, category.upper())
         products = Product.find_by_category(category_value)
     elif available:
-        app.logger.info("Find by available: %s", available)
-        # create bool from string
         available_value = available.lower() in ["true", "yes", "1"]
         products = Product.find_by_availability(available_value)
+    elif price:
+        price_products = Decimal(price)
+        products = Product.find_by_price(price_products)
     else:
-        app.logger.info("Find all")
         products = Product.all()
     results = [product.serialize() for product in products]
-    app.logger.info("[%s] Products returned", len(results))
     return results, status.HTTP_200_OK
 
 ######################################################################
@@ -136,20 +134,16 @@ def list_products():
 #
 # PLACE YOUR CODE HERE TO READ A PRODUCT
 #
+
+
 @app.route("/products/<int:product_id>", methods=["GET"])
 def get_product(product_id):
-    """
-    Retrieve a single product
-
-    This endpoint will return a product based on id provided
-    """
-    app.logger.info(f"Request to retrieve a product with id [{product_id}]")
-
+    app.logger.info("Requests to retrieve a product.")
     product = Product.find(product_id)
     if not product:
-        abort(status.HTTP_404_NOT_FOUND, f"Product with id '{product_id}' was not found.")
-    
-    app.logger.info(f"Returning product: {product_id}")
+        abort(status.HTTP_404_NOT_FOUND, f"Product id '{product_id}' was not found.")
+
+    app.logger.info(f"Returning product: {product.name}")
     return product.serialize(), status.HTTP_200_OK
 
 
@@ -162,15 +156,13 @@ def get_product(product_id):
 #
 @app.route("/products/<int:product_id>", methods=["PUT"])
 def update_products(product_id):
-    """
-    Update a Product
-    This endpoint will update a Product based the body that is posted
-    """
-    app.logger.info("Request to Update a product with id [%s]", product_id)
+    app.logger.info("Request to update a product")
     check_content_type("application/json")
+
     product = Product.find(product_id)
     if not product:
-        abort(status.HTTP_404_NOT_FOUND, f"Product with id '{product_id}' was not found.")
+        abort(status.HTTP_404_NOT_FOUND, f"Product id '{product_id}' was not found.")
+
     product.deserialize(request.get_json())
     product.id = product_id
     product.update()
@@ -180,18 +172,10 @@ def update_products(product_id):
 ######################################################################
 
 
-#
-# PLACE YOUR CODE TO DELETE A PRODUCT HERE
-#
 @app.route("/products/<int:product_id>", methods=["DELETE"])
 def delete_products(product_id):
-    """
-    Delete a Product
-    This endpoint will delete a Product based the id specified in the path
-    """
     app.logger.info("Request to Delete a product with id [%s]", product_id)
     product = Product.find(product_id)
     if product:
         product.delete()
     return "", status.HTTP_204_NO_CONTENT
-

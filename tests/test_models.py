@@ -107,6 +107,7 @@ class TestProductModel(unittest.TestCase):
     def test_read_a_product(self):
         """It should read a product"""
         product = ProductFactory()
+        logging.debug(f"Reading a product {product}")
         product.id = None
         product.create()
         self.assertIsNotNone(product.id)
